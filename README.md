@@ -54,9 +54,9 @@ Three-layer medallion architecture hosted on Databricks Free Edition with Unity 
 
 | Pattern | Example | Used For |
 |---------|---------|---------|
-| `dimXxx` | dimTeams, dimAthletes, dimGames | Enterprise dimension tables in silver — all sports |
-| `fctXxx` | fctGames | Enterprise fact tables in silver — all sports |
-| `nhl_xxx` | nhl_skater_game_logs | League-specific cleaned tables in silver |
+| `dimXxx` | dimTeams, dimAthletes, dimGames | Enterprise dimension tables — all sports |
+| `fctXxx` | fctGames | Enterprise fact tables — all sports |
+| `nhl_xxx` | nhl_skater_game_logs | League-specific cleaned tables |
 | `raw_xxx` | raw_nhl_teams | Bronze tables |
 | `gold_xxx` | gold_player_delta | Gold analysis tables |
 | `clutch_team_id` | Integer surrogate PK | Cross-sport unique team identifier |
@@ -69,15 +69,16 @@ Three-layer medallion architecture hosted on Databricks Free Edition with Unity 
 
 Silver has two tiers:
 
-**Enterprise-wide dimension and fact tables** — hold data from all sports in one table. Joined via surrogate PKs (`clutch_team_id`, `clutch_athlete_id`, `clutch_game_id`).
+**Enterprise-wide** — all sports in one table, joined via surrogate PKs.
 
-**League-specific cleaned tables** — scoped to one sport/league. Carry sport-specific fields. Named with a league prefix (e.g. `nhl_`).
+**League-specific** — scoped to one sport/league, named with league prefix (e.g. `nhl_`). Carries sport-specific fields without polluting the enterprise layer.
 
 ---
 
 ## Current Table Inventory
 
 ### Bronze
+
 | Table | Rows | Notes |
 |-------|------|-------|
 | `raw_nhl_teams` | 32 | Full refresh |
@@ -89,6 +90,7 @@ Silver has two tiers:
 | `raw_nhl_game_summaries` | 45 | R1 — MERGE on event_id |
 
 ### Silver — Enterprise
+
 | Table | Rows | Notes |
 |-------|------|-------|
 | `dimTeams` | 32 | NHL loaded. Multi-sport ready. |
@@ -97,9 +99,25 @@ Silver has two tiers:
 | `fctGames` | 47 | R1 complete + 2 R2 pending dimGames update |
 
 ### Silver — NHL Specific
+
 | Table | Rows | Notes |
 |-------|------|-------|
 | `nhl_skater_game_logs` | 25,739 | R1 + 2026 regular season |
+| `nhl_game_summaries` | 90 | Team stats tall format — 2 rows per game |
+| `nhl_player_game_stats` | 1,713 | Additive player stats from boxscore |
+| `nhl_goalie_game_logs` | 1,466 | R1 + 2026 regular season |
+| `nhl_series` | 45 | Series state — one row per game per series |
+
+### Gold
+
+| Table | Status |
+|-------|--------|
+| `gold_series_momentum` | Planned |
+| `gold_home_ice` | Planned |
+| `gold_player_delta` | Planned |
+| `gold_goalie_ratings` | Planned |
+| `gold_role_expansion` | Planned |
+| `gold_goalie_matchup` | Planned |
 
 ---
 
@@ -126,6 +144,10 @@ Silver has two tiers:
 | [07_Silver_dimGames.md](docs/wiki/07_Silver_dimGames.md) | dimGames schema, series key derivation |
 | [08_Silver_fctGames.md](docs/wiki/08_Silver_fctGames.md) | fctGames schema, sources, derivations |
 | [09_Silver_nhl_skater_game_logs.md](docs/wiki/09_Silver_nhl_skater_game_logs.md) | Skater game logs, label/stat parsing, TOI |
+| [10_Silver_nhl_game_summaries.md](docs/wiki/10_Silver_nhl_game_summaries.md) | Team stats tall format, grain rationale |
+| [11_Silver_nhl_player_game_stats.md](docs/wiki/11_Silver_nhl_player_game_stats.md) | Additive player stats, stat_group, TOI splits |
+| [12_Silver_nhl_goalie_game_logs.md](docs/wiki/12_Silver_nhl_goalie_game_logs.md) | Goalie logs, save_pct parsing, two flags |
+| [13_Silver_nhl_series.md](docs/wiki/13_Silver_nhl_series.md) | Series tracker, team_a/b ordering, momentum |
 
 ---
 
@@ -135,4 +157,18 @@ Silver has two tiers:
 2. Install Python dependencies: `pip install requests`
 3. Run local pull scripts to land JSON files in sport-specific data folders
 4. Upload files to the relevant Databricks Volume
-5. Trigger Bronze notebook → Silver → Gold in sequence
+5. Trigger Bronze → Silver → Gold notebooks in sequence
+
+---
+
+## .gitignore
+
+```
+*.json
+nhl_data/
+nfl_data/
+__pycache__/
+*.pyc
+.env
+.DS_Store
+```
